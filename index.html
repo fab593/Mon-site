@@ -1,0 +1,413 @@
+<title>Curio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#0f3d3a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: application mobile plein écran — en-tête, une vue active, barre d'onglets fixe en bas.
+   Chaque carte du fil occupe un écran (scroll-snap) avec un « chiffre clé » géant comme illustration. */
+:root{
+  --bg:#eef4f1;        /* fond menthe très pâle */
+  --surface:#ffffff;
+  --ink:#0f3d3a;       /* vert pétrole profond */
+  --muted:#5b726e;
+  --line:#d3e1dc;
+  --accent:#ff6b3d;    /* mandarine */
+  --accent-ink:#ffffff;
+  --good:#1f9d6b; --bad:#d6453d;
+  --shadow:0 1px 0 rgba(15,61,58,.06),0 8px 24px -12px rgba(15,61,58,.25);
+  --f-display:"Bricolage Grotesque",ui-rounded,"Arial Rounded MT Bold",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --tab-h:64px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1716;--surface:#13221f;--ink:#e3efeb;--muted:#93aaa5;--line:#24403b;
+  --accent:#ff8159;--accent-ink:#1a0d07;--good:#3cc58f;--bad:#ff6f66;
+  --shadow:0 1px 0 rgba(0,0,0,.3),0 10px 28px -14px rgba(0,0,0,.7);color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1716;--surface:#13221f;--ink:#e3efeb;--muted:#93aaa5;--line:#24403b;
+  --accent:#ff8159;--accent-ink:#1a0d07;--good:#3cc58f;--bad:#ff6f66;
+  --shadow:0 1px 0 rgba(0,0,0,.3),0 10px 28px -14px rgba(0,0,0,.7);color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);overflow:hidden;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:10px}
+
+.app{height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px;padding-block:10px 6px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{display:flex;align-items:center;gap:8px;font:800 1.45rem/1 var(--f-display);letter-spacing:-.02em}
+.brand svg{width:34px;height:34px}
+.streak{margin-left:auto;display:flex;align-items:center;gap:6px;font-weight:700;font-variant-numeric:tabular-nums;background:var(--surface);border:1px solid var(--line);padding:6px 12px;border-radius:999px}
+.streak .flame{width:14px;height:18px}
+
+main{flex:1;min-height:0;position:relative}
+.view{position:absolute;inset:0;overflow-y:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:4px 24px}
+
+/* Filtres */
+.chips{display:flex;gap:8px;overflow-x:auto;padding-block:4px 10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:7px 14px;border-radius:999px;border:1.5px solid var(--line);font-weight:600;font-size:.88rem;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* Fil */
+#feed{scroll-snap-type:y mandatory;padding-block:0}
+#feed .chips{position:sticky;top:0;z-index:2;background:var(--bg)}
+.card{scroll-snap-align:start;scroll-margin-top:52px;height:calc(100% - 64px);min-height:440px;margin-bottom:14px;display:flex;flex-direction:column;border-radius:28px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow);border:1px solid var(--line)}
+.hero{flex:1;min-height:160px;position:relative;display:flex;flex-direction:column;justify-content:flex-end;padding:20px;color:#fff;background:var(--c1);overflow:hidden}
+.hero::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 100% 0%,var(--c2) 0%,transparent 60%);opacity:.9}
+.hero > *{position:relative;z-index:1}
+.big{font:800 clamp(3.4rem,17vw,5.8rem)/.9 var(--f-display);letter-spacing:-.04em}
+.big small{display:block;font:600 1rem/1.3 var(--f-body);letter-spacing:0;opacity:.9;margin-top:6px}
+.tag{position:absolute;top:16px;left:16px;z-index:1;background:rgba(255,255,255,.92);color:#0f3d3a;font-weight:700;font-size:.8rem;padding:6px 12px;border-radius:999px}
+.save{position:absolute;top:10px;right:10px;z-index:1;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.18);color:#fff}
+.save svg{width:20px;height:20px}
+.save[aria-pressed="true"] svg{fill:currentColor}
+.body{padding:18px 20px 20px;display:flex;flex-direction:column;gap:10px}
+.body h2{font:700 1.35rem/1.2 var(--f-display);letter-spacing:-.01em;margin:0;text-wrap:balance}
+.body p{margin:0;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.row{display:flex;gap:10px;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:14px;font-weight:700;background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+.btn.full{width:100%}
+.meta{font-size:.8rem;color:var(--muted);margin-left:auto}
+
+/* Feuille de lecture */
+.sheet-bg{position:fixed;inset:0;background:rgba(5,20,18,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:88%;overflow-y:auto;border-radius:26px 26px 0 0;padding-block:10px calc(24px + env(safe-area-inset-bottom,0px));padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));animation:up .25s ease-out}
+.grip{width:44px;height:5px;border-radius:5px;background:var(--line);margin:0 auto 14px}
+.sheet h2{font:700 1.55rem/1.15 var(--f-display);margin:8px 0 12px;text-wrap:balance}
+.sheet .full-text p{margin:0 0 12px;max-width:65ch}
+.source{font-size:.8rem;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;margin-top:6px}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+
+/* Quiz */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:var(--shadow)}
+.h1{font:800 1.9rem/1.1 var(--f-display);letter-spacing:-.02em;margin:6px 0 4px;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 16px}
+.progress{display:flex;gap:6px;margin-bottom:16px}
+.progress i{flex:1;height:6px;border-radius:6px;background:var(--line)}
+.progress i.ok{background:var(--good)}.progress i.ko{background:var(--bad)}.progress i.cur{background:var(--ink)}
+.q{font:700 1.25rem/1.3 var(--f-display);margin:6px 0 16px;text-wrap:balance}
+.answers{display:grid;gap:10px}
+.ans{text-align:left;padding:14px 16px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);font-weight:600}
+.ans.ok{border-color:var(--good);background:color-mix(in srgb,var(--good) 14%,var(--surface))}
+.ans.ko{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--surface))}
+.ans:disabled{cursor:default}
+.explain{margin-top:14px;padding:14px;border-radius:14px;background:var(--bg);color:var(--muted);font-size:.95rem}
+.score{font:800 4.5rem/1 var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.label{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+
+/* Listes / profil */
+.list{display:grid;gap:10px}
+.item{display:flex;gap:12px;align-items:center;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:10px}
+.thumb{flex:none;width:58px;height:58px;border-radius:14px;display:grid;place-items:center;color:#fff;font:800 1.05rem/1 var(--f-display);background:var(--c1);text-align:center;padding:4px}
+.item div{min-width:0}
+.item b{display:block;font-weight:700;line-height:1.25}
+.item span{font-size:.8rem;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px}
+.stat b{display:block;font:800 2rem/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px}
+.day{text-align:center;font-size:.72rem;color:var(--muted)}
+.day i{display:block;aspect-ratio:1;max-width:100%;border-radius:10px;background:var(--line);margin-bottom:4px}
+.day i.on{background:var(--accent)}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.empty svg{width:90px;height:90px;margin-bottom:8px}
+
+/* Onglets */
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tab{height:var(--tab-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:.72rem;font-weight:600;color:var(--muted)}
+.tab svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tab[aria-current="page"]{color:var(--ink)}
+.tab[aria-current="page"] svg{stroke:var(--accent)}
+.toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + 16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;z-index:30;font-size:.9rem}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand" aria-label="Curio">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <!-- mascotte originale : petit hibou-loupe -->
+        <ellipse cx="32" cy="38" rx="22" ry="22" fill="#ff6b3d"/>
+        <path d="M14 22 L20 8 L26 20 Z M50 22 L44 8 L38 20 Z" fill="#ff6b3d"/>
+        <circle cx="23" cy="32" r="10" fill="#fff" stroke="#0f3d3a" stroke-width="3"/>
+        <circle cx="41" cy="32" r="10" fill="#fff" stroke="#0f3d3a" stroke-width="3"/>
+        <path d="M33 32h-2" stroke="#0f3d3a" stroke-width="3"/>
+        <circle cx="25" cy="33" r="4" fill="#0f3d3a"/><circle cx="43" cy="33" r="4" fill="#0f3d3a"/>
+        <path d="M29 42 L32 47 L35 42 Z" fill="#ffd166"/>
+        <ellipse cx="32" cy="53" rx="10" ry="5" fill="#ffd9c9"/>
+      </svg>
+      Curio
+    </div>
+    <div class="streak" title="Jours d'affilée avec le quiz réussi">
+      <svg class="flame" viewBox="0 0 14 18" aria-hidden="true"><path d="M7 0c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-4 3-6 0 2 1 3 2 3C6 6 5 3 7 0z" fill="var(--accent)"/></svg>
+      <span id="streakN">0</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="view" id="feed" aria-label="Découvrir"></section>
+    <section class="view" id="quiz" aria-label="Quiz du jour" hidden></section>
+    <section class="view" id="saved" aria-label="Favoris" hidden></section>
+    <section class="view" id="me" aria-label="Profil" hidden></section>
+  </main>
+
+  <nav class="tabs" aria-label="Navigation">
+    <button class="tab" data-v="feed" aria-current="page"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="4"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Découvrir</button>
+    <button class="tab" data-v="quiz"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14M12 17.5v.01"/></svg>Quiz du jour</button>
+    <button class="tab" data-v="saved"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Favoris</button>
+    <button class="tab" data-v="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Profil</button>
+  </nav>
+</div>
+
+<script>
+const CATS = {
+  histoire:  {name:"Histoire",      c1:"#8a3b12", c2:"#e0892f"},
+  sciences:  {name:"Sciences",      c1:"#163f8c", c2:"#3fa3e8"},
+  animaux:   {name:"Animaux",       c1:"#1f6b3a", c2:"#8ccf4d"},
+  espace:    {name:"Espace",        c1:"#1a1446", c2:"#7a4fe0"},
+  geo:       {name:"Géographie",    c1:"#0d5f6b", c2:"#38c3c9"},
+  langue:    {name:"Mots & langue", c1:"#7a1f4b", c2:"#ef6a9a"},
+  corps:     {name:"Corps humain",  c1:"#9c2b2b", c2:"#ff8a70"},
+  art:       {name:"Art",           c1:"#5a3d0c", c2:"#d6a531"},
+  psycho:    {name:"Psychologie",   c1:"#3c2a6b", c2:"#d07ae0"}
+};
+
+const CARDS = [
+ {id:"cleo",cat:"histoire",big:"2 500 ans",cap:"entre la grande pyramide et Cléopâtre",
+  title:"Cléopâtre a vécu plus près de nous que des bâtisseurs de la grande pyramide",
+  text:["La grande pyramide de Gizeh a été achevée vers 2560 av. J.-C. Cléopâtre VII est morte en 30 av. J.-C., soit environ 2 500 ans plus tard.","Entre sa mort et le premier vol habité vers la Lune, il s'est écoulé « seulement » 2 000 ans. Pour Cléopâtre, les pyramides étaient déjà des monuments antiques."],
+  src:"Chronologie de l'Égypte ancienne",
+  q:{q:"Qui a vécu le plus près de la construction de la grande pyramide ?",a:["Cléopâtre","Jules César","Ramsès II","Alexandre le Grand"],r:2,e:"Ramsès II a régné vers 1279–1213 av. J.-C., bien avant les trois autres, qui sont tous du Ier ou IVe siècle av. J.-C."}},
+ {id:"pieuvre",cat:"animaux",big:"3 cœurs",cap:"et un sang bleu",
+  title:"La pieuvre a trois cœurs et du sang bleu",
+  text:["Deux cœurs envoient le sang vers les branchies, le troisième l'envoie dans le reste du corps.","Son sang est bleu car il transporte l'oxygène grâce à l'hémocyanine, une molécule à base de cuivre, et non à l'hémoglobine (à base de fer) comme chez nous."],
+  src:"Biologie des céphalopodes",
+  q:{q:"Pourquoi le sang de la pieuvre est-il bleu ?",a:["Il contient du cuivre","Il contient du cobalt","Il manque d'oxygène","À cause de l'encre"],r:0,e:"L'hémocyanine contient du cuivre, ce qui donne une teinte bleue au sang oxygéné."}},
+ {id:"venus",cat:"espace",big:"243 j",cap:"pour un tour sur elle-même",
+  title:"Sur Vénus, un jour dure plus longtemps qu'une année",
+  text:["Vénus met environ 243 jours terrestres pour faire un tour sur elle-même, mais seulement 225 jours pour faire le tour du Soleil.","Elle tourne en plus dans le sens inverse de la plupart des planètes : le Soleil s'y lève à l'ouest."],
+  src:"NASA, fiche planétaire de Vénus",
+  q:{q:"Sur Vénus, où se lève le Soleil ?",a:["À l'est","À l'ouest","Au nord","Il ne se lève jamais"],r:1,e:"Vénus a une rotation rétrograde : le Soleil se lève à l'ouest."}},
+ {id:"fuseaux",cat:"geo",big:"12",cap:"fuseaux horaires pour la France",
+  title:"La France est le pays qui compte le plus de fuseaux horaires",
+  text:["Grâce à ses territoires d'outre-mer (Polynésie, Réunion, Nouvelle-Calédonie, Guyane…), la France couvre 12 fuseaux horaires, 13 si l'on compte la Terre Adélie en Antarctique.","La Russie, pourtant immense d'un seul tenant, en compte 11."],
+  src:"Données des fuseaux horaires officiels",
+  q:{q:"Combien de fuseaux horaires compte la Russie ?",a:["7","9","11","14"],r:2,e:"La Russie s'étend sur 11 fuseaux horaires, un de moins que la France avec ses outre-mer."}},
+ {id:"zanzibar",cat:"histoire",big:"38 min",cap:"pour toute une guerre",
+  title:"La guerre la plus courte de l'histoire a duré moins d'une heure",
+  text:["Le 27 août 1896, le Royaume-Uni et le sultanat de Zanzibar s'affrontent après une crise de succession.","Le bombardement du palais dure entre 38 et 45 minutes selon les sources, avant que le pavillon du sultan ne soit abattu."],
+  src:"Guerre anglo-zanzibarite, 1896",
+  q:{q:"En quelle année a eu lieu la guerre anglo-zanzibarite ?",a:["1815","1896","1914","1956"],r:1,e:"Elle a eu lieu le 27 août 1896."}},
+ {id:"os",cat:"corps",big:"≈ 300",cap:"os à la naissance",
+  title:"Un bébé a plus d'os qu'un adulte",
+  text:["Un nouveau-né possède environ 300 os ou pièces de cartilage en cours d'ossification.","En grandissant, plusieurs d'entre eux fusionnent, notamment au crâne et au bassin. Un adulte en compte en général 206."],
+  src:"Anatomie humaine",
+  q:{q:"Combien d'os compte en général un adulte ?",a:["186","206","256","300"],r:1,e:"Un squelette adulte compte habituellement 206 os."}},
+ {id:"joconde",cat:"art",big:"1911",cap:"l'année où elle a disparu",
+  title:"La Joconde est devenue célèbre en se faisant voler",
+  text:["Le 21 août 1911, Vincenzo Peruggia, un ouvrier qui avait travaillé au Louvre, sort le tableau caché sous sa blouse.","L'enquête fait la une des journaux du monde entier. Le tableau est retrouvé à Florence en 1913, et sa notoriété ne retombera plus."],
+  src:"Musée du Louvre",
+  q:{q:"Où la Joconde a-t-elle été retrouvée après son vol ?",a:["Rome","Londres","Florence","Madrid"],r:2,e:"Peruggia a tenté de la vendre à un marchand de Florence, qui a prévenu les autorités."}},
+ {id:"arbres",cat:"sciences",big:"3 000 Md",cap:"d'arbres sur Terre",
+  title:"Il y a plus d'arbres sur Terre que d'étoiles dans notre galaxie",
+  text:["Une étude publiée dans Nature en 2015 estime le nombre d'arbres sur Terre à environ 3 000 milliards.","La Voie lactée compterait entre 100 et 400 milliards d'étoiles. Les arbres gagnent donc largement."],
+  src:"Crowther et al., Nature, 2015",
+  q:{q:"Combien d'étoiles compte environ la Voie lactée ?",a:["1 à 4 milliards","100 à 400 milliards","10 000 milliards","Plus d'un million de milliards"],r:1,e:"Les estimations vont d'environ 100 à 400 milliards d'étoiles."}},
+ {id:"baikal",cat:"geo",big:"20 %",cap:"de l'eau douce de surface",
+  title:"Un seul lac contient un cinquième de l'eau douce de surface du monde",
+  text:["Le lac Baïkal, en Sibérie, atteint 1 642 m de profondeur. C'est le lac le plus profond de la planète.","Il contient environ 20 % de l'eau douce liquide de surface du globe, plus que les cinq Grands Lacs américains réunis."],
+  src:"UNESCO, patrimoine mondial",
+  q:{q:"Dans quel pays se trouve le lac Baïkal ?",a:["Mongolie","Kazakhstan","Russie","Chine"],r:2,e:"Le lac Baïkal est situé en Sibérie, en Russie."}},
+ {id:"shampooing",cat:"langue",big:"chāmpo",cap:"« masser » en hindi",
+  title:"Le mot « shampooing » vient de l'hindi",
+  text:["Il vient du verbe hindi chāmpo, « presser, masser ». Le mot passe en anglais au XVIIIe siècle, au contact des pratiques de massage en Inde.","Il a d'abord désigné un massage, puis le lavage des cheveux, et enfin le produit lui-même."],
+  src:"Dictionnaires étymologiques",
+  q:{q:"Que signifiait à l'origine le mot dont vient « shampooing » ?",a:["Mousser","Masser","Parfumer","Rincer"],r:1,e:"Chāmpo signifie « presser, masser » en hindi."}},
+ {id:"napoleon",cat:"histoire",big:"1,69 m",cap:"taille estimée de Napoléon",
+  title:"Napoléon n'était pas petit",
+  text:["Napoléon mesurait environ 1,69 m, dans la moyenne de son époque, voire un peu au-dessus.","Le mythe vient en partie d'une confusion d'unités : « 5 pieds 2 pouces » en pouces français équivaut à environ 1,69 m, mais semblait minuscule en pouces anglais. Les caricatures britanniques ont fait le reste."],
+  src:"Rapport d'autopsie, 1821",
+  q:{q:"D'où vient en partie le mythe du « petit » Napoléon ?",a:["De son surnom de « petit caporal » uniquement","D'une confusion entre pouces français et anglais","De son portrait par David","D'une erreur de son médecin"],r:1,e:"Les pouces français étaient plus longs que les pouces anglais. La même mesure semblait donc plus petite en Angleterre."}},
+ {id:"wombat",cat:"animaux",big:"cubes",cap:"c'est la forme de ses crottes",
+  title:"Le wombat produit des crottes en forme de cube",
+  text:["Ce marsupial australien est le seul animal connu à produire des excréments cubiques.","Une étude de 2018 a montré que la forme vient de l'élasticité variable de la paroi de son intestin. Il s'en sert pour marquer son territoire : les cubes ne roulent pas."],
+  src:"Yang et al., 2018 (prix Ig Nobel 2019)",
+  q:{q:"Sur quel continent vit le wombat ?",a:["Afrique","Amérique du Sud","Océanie","Asie"],r:2,e:"Le wombat vit en Australie."}},
+ {id:"eiffel",cat:"sciences",big:"+15 cm",cap:"en été, au sommet",
+  title:"La tour Eiffel grandit quand il fait chaud",
+  text:["Le fer se dilate avec la chaleur. Par forte chaleur, le sommet de la tour peut s'élever d'une quinzaine de centimètres.","Le soleil chauffe aussi un côté plus que l'autre, ce qui fait légèrement pencher le sommet à l'opposé du soleil au fil de la journée."],
+  src:"Société d'exploitation de la tour Eiffel",
+  q:{q:"En quel matériau la tour Eiffel est-elle construite ?",a:["Acier inoxydable","Fer puddlé","Fonte","Aluminium"],r:1,e:"Elle est faite de fer puddlé, environ 7 300 tonnes pour la structure métallique."}},
+ {id:"exposition",cat:"psycho",big:"×10",cap:"vu plus souvent, aimé davantage",
+  title:"On finit par aimer ce que l'on voit souvent",
+  text:["C'est l'« effet de simple exposition », décrit par le psychologue Robert Zajonc en 1968.","Dans ses expériences, des mots ou des visages inconnus étaient jugés plus agréables quand ils avaient été montrés plus souvent, même sans que les participants s'en souviennent. La publicité répétitive repose en partie sur ce mécanisme."],
+  src:"Zajonc, 1968",
+  q:{q:"Quel psychologue a décrit l'effet de simple exposition ?",a:["Sigmund Freud","Robert Zajonc","Stanley Milgram","Jean Piaget"],r:1,e:"Robert Zajonc l'a formalisé en 1968."}},
+ {id:"flamant",cat:"animaux",big:"rose",cap:"grâce à ce qu'il mange",
+  title:"Les flamants roses naissent gris",
+  text:["Les poussins ont un duvet gris-blanc. Leur couleur rose vient des pigments caroténoïdes présents dans les algues et les petits crustacés qu'ils mangent.","Un flamant privé de ces pigments perd peu à peu sa couleur. Dans les zoos, on en ajoute à leur nourriture."],
+  src:"Ornithologie",
+  q:{q:"D'où vient la couleur des flamants roses ?",a:["De leurs gènes uniquement","Des pigments de leur nourriture","Du soleil","De l'eau salée"],r:1,e:"Ce sont les caroténoïdes de leur alimentation."}},
+ {id:"pas",cat:"espace",big:"∞",cap:"ou presque, pour une trace de pas",
+  title:"Les traces de pas sur la Lune peuvent durer des millions d'années",
+  text:["La Lune n'a ni vent ni pluie pour effacer les empreintes laissées par les astronautes d'Apollo entre 1969 et 1972.","Seuls les micrométéorites et les particules venues du Soleil les érodent, très lentement."],
+  src:"NASA",
+  q:{q:"Combien d'astronautes ont marché sur la Lune ?",a:["2","6","12","24"],r:2,e:"Douze astronautes des missions Apollo ont marché sur la Lune entre 1969 et 1972."}}
+];
+
+/* ---------- état local ---------- */
+const KEY="curio-v1";
+const today=()=>new Date().toISOString().slice(0,10);
+let S={saved:[],read:[],days:{},streak:0,last:null,best:0};
+try{const raw=localStorage.getItem(KEY);if(raw)S={...S,...JSON.parse(raw)}}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+function dayDiff(a,b){return Math.round((new Date(b)-new Date(a))/864e5)}
+if(S.last&&dayDiff(S.last,today())>1){S.streak=0;save()}
+
+/* tirage déterministe par jour */
+function seeded(seed){let h=0;for(const c of seed)h=(h*31+c.charCodeAt(0))>>>0;return()=>{h^=h<<13;h^=h>>>17;h^=h<<5;return(h>>>0)/4294967296}}
+function shuffleDay(arr,salt){const r=seeded(today()+salt);const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+const $=s=>document.querySelector(s);
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const bm='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"/></svg>';
+function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.append(d);setTimeout(()=>d.remove(),1800)}
+function vars(c){return `--c1:${CATS[c].c1};--c2:${CATS[c].c2}`}
+
+/* ---------- Découvrir ---------- */
+let filter="all";
+function renderFeed(){
+  const list=shuffleDay(CARDS,"feed").filter(c=>filter==="all"||c.cat===filter);
+  const chips=[["all","Pour toi"],...Object.entries(CATS).map(([k,v])=>[k,v.name])]
+    .map(([k,n])=>`<button class="chip" data-f="${k}" aria-pressed="${filter===k}">${n}</button>`).join("");
+  $("#feed").innerHTML=`<div class="chips" role="toolbar" aria-label="Catégories">${chips}</div>`+
+   list.map(c=>`<article class="card">
+     <div class="hero" style="${vars(c.cat)}">
+       <span class="tag">${CATS[c.cat].name}</span>
+       <button class="save" data-save="${c.id}" aria-pressed="${S.saved.includes(c.id)}" aria-label="Ajouter aux favoris">${bm}</button>
+       <div class="big">${esc(c.big)}<small>${esc(c.cap)}</small></div>
+     </div>
+     <div class="body">
+       <h2>${esc(c.title)}</h2>
+       <p>${esc(c.text[0])}</p>
+       <div class="row"><button class="btn" data-open="${c.id}">Lire la suite</button>
+       <span class="meta">${S.read.includes(c.id)?"Lu ✓":"1 min"}</span></div>
+     </div></article>`).join("");
+}
+$("#feed").addEventListener("click",e=>{
+  const f=e.target.closest("[data-f]");if(f){filter=f.dataset.f;renderFeed();$("#feed").scrollTop=0;return}
+  const s=e.target.closest("[data-save]");if(s){toggleSave(s.dataset.save);s.setAttribute("aria-pressed",S.saved.includes(s.dataset.save));return}
+  const o=e.target.closest("[data-open]");if(o)openCard(o.dataset.open);
+});
+function toggleSave(id){const i=S.saved.indexOf(id);if(i<0){S.saved.push(id);toast("Ajouté aux favoris")}else{S.saved.splice(i,1);toast("Retiré des favoris")}save()}
+
+/* ---------- Lecture ---------- */
+function openCard(id){
+  const c=CARDS.find(x=>x.id===id);
+  if(!S.read.includes(id)){S.read.push(id);save()}
+  const bg=document.createElement("div");bg.className="sheet-bg";
+  bg.innerHTML=`<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(c.title)}">
+    <div class="grip"></div>
+    <div class="hero" style="${vars(c.cat)};border-radius:20px;min-height:150px"><span class="tag">${CATS[c.cat].name}</span><div class="big">${esc(c.big)}<small>${esc(c.cap)}</small></div></div>
+    <h2>${esc(c.title)}</h2>
+    <div class="full-text">${c.text.map(p=>`<p>${esc(p)}</p>`).join("")}</div>
+    <div class="panel" style="box-shadow:none;margin:8px 0 14px"><div class="label">Vérifie que tu as retenu</div><div class="q" style="font-size:1.1rem">${esc(c.q.q)}</div><div class="answers" id="miniQ">${c.q.a.map((a,i)=>`<button class="ans" data-i="${i}">${esc(a)}</button>`).join("")}</div></div>
+    <div class="source">Source : ${esc(c.src)}</div>
+    <div class="row" style="margin-top:14px"><button class="btn ghost" data-save="${c.id}">${S.saved.includes(c.id)?"Retirer des favoris":"Ajouter aux favoris"}</button><button class="btn" data-close style="margin-left:auto">Fermer</button></div>
+  </div>`;
+  bg.addEventListener("click",e=>{
+    if(e.target===bg||e.target.closest("[data-close]")){bg.remove();renderFeed();return}
+    const s=e.target.closest("[data-save]");if(s){toggleSave(c.id);s.textContent=S.saved.includes(c.id)?"Retirer des favoris":"Ajouter aux favoris";return}
+    const a=e.target.closest("#miniQ .ans");if(a)answer(a,c.q,bg.querySelector("#miniQ"));
+  });
+  document.addEventListener("keydown",function k(e){if(e.key==="Escape"){bg.remove();document.removeEventListener("keydown",k)}});
+  document.body.append(bg);bg.querySelector("[data-close]").focus();
+}
+function answer(btn,q,box){
+  const i=+btn.dataset.i;const ok=i===q.r;
+  box.querySelectorAll(".ans").forEach((b,j)=>{b.disabled=true;if(j===q.r)b.classList.add("ok")});
+  if(!ok)btn.classList.add("ko");
+  box.insertAdjacentHTML("afterend",`<div class="explain"><b style="color:var(${ok?"--good":"--bad"})">${ok?"Bonne réponse.":"Raté."}</b> ${esc(q.e)}</div>`);
+  return ok;
+}
+
+/* ---------- Quiz du jour ---------- */
+let Q=null;
+function renderQuiz(){
+  const done=S.days[today()];
+  const el=$("#quiz");
+  if(done!==undefined&&!Q){
+    el.innerHTML=`<div class="label">Quiz du ${new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long"})}</div>
+    <h1 class="h1">Quiz terminé pour aujourd'hui</h1><p class="sub">Un nouveau quiz arrive demain. Ta série continue si tu reviens.</p>
+    <div class="panel" style="text-align:center"><div class="score">${done}/5</div><div class="label" style="margin-top:6px">ton score</div></div>
+    <button class="btn ghost full" style="margin-top:14px" id="replay">Refaire pour s'entraîner</button>`;
+    $("#replay").onclick=()=>{Q={qs:shuffleDay(CARDS,"quiz").slice(0,5),i:0,res:[],practice:true};renderQuiz()};
+    return;
+  }
+  if(!Q)Q={qs:shuffleDay(CARDS,"quiz").slice(0,5),i:0,res:[]};
+  if(Q.i>=5){
+    const sc=Q.res.filter(Boolean).length;
+    if(!Q.practice){S.days[today()]=sc;
+      if(S.last!==today()){S.streak=(S.last&&dayDiff(S.last,today())===1)?S.streak+1:1;S.last=today()}
+      S.best=Math.max(S.best,S.streak);save();updateStreak()}
+    el.innerHTML=`<h1 class="h1">${sc>=4?"Excellent !":sc>=2?"Pas mal !":"On retente demain ?"}</h1>
+    <p class="sub">${Q.practice?"Entraînement : ce score ne compte pas.":`Série : ${S.streak} jour${S.streak>1?"s":""} d'affilée.`}</p>
+    <div class="panel" style="text-align:center"><div class="score">${sc}/5</div><div class="progress" style="margin:14px 0 0">${Q.res.map(r=>`<i class="${r?"ok":"ko"}"></i>`).join("")}</div></div>
+    <div class="label" style="margin:18px 0 8px">Les anecdotes du quiz</div>
+    <div class="list">${Q.qs.map(itemHTML).join("")}</div>`;
+    Q=null;return;
+  }
+  const c=Q.qs[Q.i];
+  el.innerHTML=`<div class="label">${Q.practice?"Entraînement":"Quiz du jour"} · question ${Q.i+1} sur 5</div>
+   <div class="progress" style="margin-top:10px">${[0,1,2,3,4].map(k=>`<i class="${k<Q.i?(Q.res[k]?"ok":"ko"):k===Q.i?"cur":""}"></i>`).join("")}</div>
+   <div class="panel"><span class="tag" style="position:static;display:inline-block;${vars(c.cat)};background:var(--c1);color:#fff">${CATS[c.cat].name}</span>
+   <div class="q">${esc(c.q.q)}</div>
+   <div class="answers" id="qa">${c.q.a.map((a,i)=>`<button class="ans" data-i="${i}">${esc(a)}</button>`).join("")}</div>
+   <div id="next"></div></div>`;
+  $("#qa").onclick=e=>{const b=e.target.closest(".ans");if(!b||b.disabled)return;
+    Q.res.push(answer(b,c.q,$("#qa")));
+    $("#next").innerHTML=`<button class="btn full" style="margin-top:14px">${Q.i<4?"Question suivante":"Voir mon score"}</button>`;
+    $("#next button").onclick=()=>{Q.i++;renderQuiz();$("#quiz").scrollTop=0};
+    $("#next button").focus();};
+}
+
+/* ---------- Favoris & profil ---------- */
+function itemHTML(c){return `<button class="item" data-open="${c.id}"><span class="thumb" style="${vars(c.cat)}">${esc(c.big)}</span><div><b>${esc(c.title)}</b><span>${CATS[c.cat].name}</span></div></button>`}
+function renderSaved(){
+  const l=CARDS.filter(c=>S.saved.includes(c.id));
+  $("#saved").innerHTML=`<h1 class="h1">Favoris</h1>`+(l.length?`<p class="sub">${l.length} anecdote${l.length>1?"s":""} gardée${l.length>1?"s":""}.</p><div class="list">${l.map(itemHTML).join("")}</div>`
+   :`<div class="empty">${bm.replace('<svg','<svg style="width:56px;height:56px"')}<p>Aucun favori pour l'instant.<br>Touche le marque-page d'une carte pour la garder ici.</p></div>`);
+}
+function renderMe(){
+  const days=[...Array(7)].map((_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);const k=d.toISOString().slice(0,10);
+    return `<div class="day"><i class="${S.days[k]!==undefined?"on":""}"></i>${d.toLocaleDateString("fr-FR",{weekday:"narrow"})}</div>`}).join("");
+  const scores=Object.values(S.days);const avg=scores.length?(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1).replace(".",","):"–";
+  $("#me").innerHTML=`<h1 class="h1">Ta progression</h1><p class="sub">Tes données restent sur cet appareil.</p>
+   <div class="panel"><div class="label">7 derniers jours</div><div class="week">${days}</div></div>
+   <div class="stats">
+     <div class="stat"><b>${S.streak}</b><span class="label">Série actuelle</span></div>
+     <div class="stat"><b>${S.best}</b><span class="label">Meilleure série</span></div>
+     <div class="stat"><b>${S.read.length}/${CARDS.length}</b><span class="label">Anecdotes lues</span></div>
+     <div class="stat"><b>${avg}</b><span class="label">Score moyen /5</span></div>
+   </div>
+   <button class="btn ghost full" id="reset">Effacer ma progression</button><div id="confirm"></div>`;
+  $("#reset").onclick=()=>{$("#confirm").innerHTML=`<div class="explain">Tout effacer ? <button class="btn" id="yes" style="margin-left:8px;padding:8px 14px">Effacer</button></div>`;
+    $("#yes").onclick=()=>{S={saved:[],read:[],days:{},streak:0,last:null,best:0};save();updateStreak();renderMe();toast("Progression effacée")}};
+}
+document.addEventListener("click",e=>{const o=e.target.closest("#saved [data-open],#me [data-open],#quiz [data-open]");if(o)openCard(o.dataset.open)});
+
+/* ---------- navigation ---------- */
+const R={feed:renderFeed,quiz:renderQuiz,saved:renderSaved,me:renderMe};
+function go(v){document.querySelectorAll(".view").forEach(s=>s.hidden=s.id!==v);
+  document.querySelectorAll(".tab").forEach(t=>t.dataset.v===v?t.setAttribute("aria-current","page"):t.removeAttribute("aria-current"));
+  R[v]();}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>go(t.dataset.v));
+function updateStreak(){$("#streakN").textContent=S.streak}
+updateStreak();renderFeed();
+</script>
